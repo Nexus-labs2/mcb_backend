@@ -3,7 +3,14 @@ const cors = require("cors");
 const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
-app.use(cors());
+
+// ✅ CORS fix — must be before everything else
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
+app.options("*", cors());
 app.use(express.json());
 
 /* ── Supabase ── */
@@ -45,7 +52,6 @@ async function loadThresholds() {
   if (!error && data) thresholds = data;
 }
 
-/* ── Helpers ── */
 function pushAlert(msg) {
   const last = liveState.alerts.at(-1);
   if (last?.message === msg) return;
@@ -55,25 +61,16 @@ function pushAlert(msg) {
 
 function computeAI() {
   const powers = [1, 2, 3].map(i => liveState.boards[i].power);
-  const maxPow = Math.max(...powers);
-  const trips = [
-    thresholds.board1_trip,
-    thresholds.board2_trip,
-    thresholds.board3_trip
-  ];
+  const maxPow  = Math.max(...powers);
+  const trips   = [thresholds.board1_trip, thresholds.board2_trip, thresholds.board3_trip];
   const maxTrip = Math.max(...trips);
-  const pct = (maxPow / maxTrip) * 100;
+  const pct     = (maxPow / maxTrip) * 100;
   let risk = "LOW", score = Math.min(100, Math.round(pct));
 
-  if (liveState.gas > thresholds.gas_alert) {
-    risk = "CRITICAL"; score = 100;
-  } else if (pct >= 90 || liveState.temperature > 55) {
-    risk = "CRITICAL"; score = Math.max(score, 95);
-  } else if (pct >= 70 || liveState.temperature > 50) {
-    risk = "HIGH"; score = Math.max(score, 75);
-  } else if (pct >= 40 || liveState.temperature > thresholds.temp_fan_on) {
-    risk = "MEDIUM"; score = Math.max(score, 45);
-  }
+  if (liveState.gas > thresholds.gas_alert)         { risk = "CRITICAL"; score = 100; }
+  else if (pct >= 90 || liveState.temperature > 55) { risk = "CRITICAL"; score = Math.max(score, 95); }
+  else if (pct >= 70 || liveState.temperature > 50) { risk = "HIGH";     score = Math.max(score, 75); }
+  else if (pct >= 40 || liveState.temperature > thresholds.temp_fan_on) { risk = "MEDIUM"; score = Math.max(score, 45); }
 
   const messages = {
     LOW:      "All systems nominal",
@@ -92,9 +89,9 @@ function applyThresholds() {
     const pow = liveState.boards[i].power;
     if (pow > trips[i - 1]) {
       liveState.boards[i].relay = false;
-      pushAlert(`Board ${i} tripped — ${pow.toFixed(0)}W exceeded ${trips[i-1]}W limit`);
+      pushAlert(`Board ${i} tripped — ${pow.toFixed(0)}W exceeded ${trips[i-1]}W`);
     } else if (pow > warns[i - 1]) {
-      pushAlert(`Board ${i} warning — ${pow.toFixed(0)}W approaching ${trips[i-1]}W limit`);
+      pushAlert(`Board ${i} warning — ${pow.toFixed(0)}W approaching ${trips[i-1]}W`);
     }
   }
 
@@ -104,12 +101,8 @@ function applyThresholds() {
   liveState.boards[4].relay = fanOn;
 
   if (liveState.gas > thresholds.gas_alert) {
-    pushAlert("Gas leak detected — all boards shutting down");
+    pushAlert("Gas leak — all boards shutting down");
     [1, 2, 3].forEach(i => (liveState.boards[i].relay = false));
-  }
-
-  if (liveState.temperature > 50) {
-    pushAlert("Temperature critical — fan engaged");
   }
 }
 
@@ -133,12 +126,10 @@ async function saveReading() {
 
 app.get("/", (req, res) => res.send("MCB Backend Online"));
 
-/* ESP32 sends data here */
 app.post("/api/data", async (req, res) => {
   try {
     await loadThresholds();
     const d = req.body;
-    console.log("Incoming:", JSON.stringify(d));
 
     for (let i = 1; i <= 3; i++) {
       const key = `board${i}`;
@@ -171,10 +162,8 @@ app.post("/api/data", async (req, res) => {
   }
 });
 
-/* Dashboard polls this */
 app.get("/api/data", (req, res) => res.json(liveState));
 
-/* History chart */
 app.get("/api/history", async (req, res) => {
   const { data, error } = await supabase
     .from("sensor_data")
@@ -185,7 +174,6 @@ app.get("/api/history", async (req, res) => {
   res.json(data.reverse());
 });
 
-/* Dashboard reads thresholds */
 app.get("/api/threshold", async (req, res) => {
   const { data, error } = await supabase
     .from("thresholds")
@@ -197,7 +185,6 @@ app.get("/api/threshold", async (req, res) => {
   res.json(data);
 });
 
-/* Dashboard saves new thresholds */
 app.post("/api/threshold", async (req, res) => {
   try {
     const t = req.body;
@@ -216,7 +203,6 @@ app.post("/api/threshold", async (req, res) => {
   }
 });
 
-/* Manual relay override from dashboard */
 app.post("/api/relay/:board", (req, res) => {
   const b = parseInt(req.params.board);
   const { state } = req.body;
@@ -225,7 +211,7 @@ app.post("/api/relay/:board", (req, res) => {
     pushAlert(`Board ${b} manually ${state ? "turned ON" : "switched OFF"}`);
     res.json({ status: "ok", relay: state });
   } else {
-    res.status(400).json({ error: "Invalid board number" });
+    res.status(400).json({ error: "Invalid board" });
   }
 });
 

@@ -15,5 +15,14 @@
     "@supabase/supabase-js": "^2.105.1",
     "cors": "^2.8.6",
     "express": "^5.2.1"
-  }
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nexus-labs2/mcb_backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nexus-labs2/mcb_backend/issues"
+  },
+  "homepage": "https://github.com/Nexus-labs2/mcb_backend#readme"
 }
