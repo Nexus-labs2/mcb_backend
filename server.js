@@ -132,30 +132,41 @@ app.post("/api/data", async (req, res) => {
     const d = req.body;
 
 // ======================================
-// BOARD 1 MASTER SYNC
+// BOARD VOLTAGE SYNC
+// BOARD 3 DISCONNECTED
 // ======================================
 
+// Master voltage from Board1
+const masterVoltage = d.board1?.voltage ?? 0;
+
+// ===== BOARD 1 =====
 if (d.board1) {
 
-  const voltage = d.board1.voltage ?? 0;
-  const current = d.board1.current ?? 0;
-  const power   = voltage * current;
+  liveState.boards[1].voltage = masterVoltage;
+  liveState.boards[1].current = d.board1.current ?? 0;
 
-  // ===== BOARD 1 =====
-  liveState.boards[1].voltage = voltage;
-  liveState.boards[1].current = current;
-  liveState.boards[1].power   = power;
-
-  // ===== BOARD 2 SYNC =====
-  liveState.boards[2].voltage = voltage;
-  liveState.boards[2].current = current;
-  liveState.boards[2].power   = power;
-
-  // ===== BOARD 3 SYNC =====
-  liveState.boards[3].voltage = voltage;
-  liveState.boards[3].current = current;
-  liveState.boards[3].power   = power;
+  liveState.boards[1].power =
+    masterVoltage * liveState.boards[1].current;
 }
+
+// ===== BOARD 2 =====
+if (d.board2) {
+
+  // Voltage synced from Board1
+  liveState.boards[2].voltage = masterVoltage;
+
+  // Current remains independent
+  liveState.boards[2].current = d.board2.current ?? 0;
+
+  // Recalculate power
+  liveState.boards[2].power =
+    masterVoltage * liveState.boards[2].current;
+}
+
+// ===== BOARD 3 DISCONNECTED =====
+liveState.boards[3].voltage = 0;
+liveState.boards[3].current = 0;
+liveState.boards[3].power   = 0;
     if (d.temperature !== undefined) liveState.temperature = d.temperature;
     if (d.gas !== undefined)         liveState.gas = d.gas;
 
