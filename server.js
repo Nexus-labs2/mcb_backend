@@ -131,14 +131,31 @@ app.post("/api/data", async (req, res) => {
     await loadThresholds();
     const d = req.body;
 
-    for (let i = 1; i <= 3; i++) {
-      const key = `board${i}`;
-      if (d[key]) {
-        liveState.boards[i].voltage = d[key].voltage ?? 0;
-        liveState.boards[i].current = d[key].current ?? 0;
-        liveState.boards[i].power   = (d[key].voltage ?? 0) * (d[key].current ?? 0);
-      }
-    }
+// ======================================
+// BOARD 1 MASTER SYNC
+// ======================================
+
+if (d.board1) {
+
+  const voltage = d.board1.voltage ?? 0;
+  const current = d.board1.current ?? 0;
+  const power   = voltage * current;
+
+  // ===== BOARD 1 =====
+  liveState.boards[1].voltage = voltage;
+  liveState.boards[1].current = current;
+  liveState.boards[1].power   = power;
+
+  // ===== BOARD 2 SYNC =====
+  liveState.boards[2].voltage = voltage;
+  liveState.boards[2].current = current;
+  liveState.boards[2].power   = power;
+
+  // ===== BOARD 3 SYNC =====
+  liveState.boards[3].voltage = voltage;
+  liveState.boards[3].current = current;
+  liveState.boards[3].power   = power;
+}
     if (d.temperature !== undefined) liveState.temperature = d.temperature;
     if (d.gas !== undefined)         liveState.gas = d.gas;
 
